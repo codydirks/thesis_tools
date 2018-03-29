@@ -66,6 +66,33 @@ def get_ul(sl,line):
     ul=3.768E14*tau/(f*line)
     return np.log10(ul)
 
+# Calculates the F* parameter defined by Jenkins(2009)
+# Inputs:   el1row, el2row are parameter rows from Jenkins09 Table4
+#           el1n,el2n,el1err,el2err are log(N) and associated errors for the two elements
+def get_f_star(el1row,el2row,el1n,el2n,el1err,el2err):
+    el1_frac_err=0.434*10**(el1err-el1n)
+    el2_frac_err=0.434*10**(el2err-el2n)
+    fs=np.arange(-1,3,0.01)
+    a1,a1err,b1,b1err,x1,x1err=chain.from_iterable([[el1row[idx],el1row['e_'+idx]] for idx in ('Ax','Bx','[X/H]')])
+    z1=el1row['zx']
+    a2,a2err,b2,b2err,x2,x2err=chain.from_iterable([[el2row[idx],el2row['e_'+idx]] for idx in ('Ax','Bx','[X/H]')])
+    z2=el1row['zx']
+    el1_depls=b1+a1*(fs-z1)
+    el2_depls=b2+a2*(fs-z2)
+
+    rats=el1_depls-el2_depls
+    rat=el1n-el2n-(x1-12)+(x2-12)
+    f=fs[np.abs(rats-rat).argmin()]
+
+    f_err=np.sqrt((el1_frac_err**2+el2_frac_err**2
+                    #+x1err**2+x2err**2
+                    #+b1err**2+b2err**2
+                    #+(z1*(a1-a2)*a1err)**2 + (z2*(a1-a2)*a2err)**2
+                    #+((a1*z1)**2+(a2*z2)**2)*(a1err**2+a2err**2)
+                  )/(a1-a2)**2
+                 )
+    return f,f_err
+
 # Parses the FITS6P atomic.dat file to find relevant line info
 # for an atomic line of a given wavelength
 def get_atomic_entry(wav):
