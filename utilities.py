@@ -67,10 +67,39 @@ def get_ul(sl,line):
     ul=3.768E14*tau/(f*line)
     return np.log10(ul)
 
-# Calculates the F* parameter defined by Jenkins(2009)
+
+
+def get_f_star(element_data, element_params, sightline, list_of_elements):
+    el1=list_of_elements[0]
+    el1row=element_data[(element_data['HD']==sightline) & (element_data['El']==el1)]
+    el1param=element_params[element_params['El']==el1].iloc[0]
+    el1n=el1row['logNx']
+    el1_frac_err=(el1row['B_logNx']-el1row['b_logNx'])/2.
+    el1err=np.log10(el1_frac_err/0.434)+el1n
+    f_vals=np.empty(0)
+    f_errs=np.empty(0)
+    for el2 in list_of_elements[1:]:
+        el2row=element_data[(element_data['HD']==sightline) & (element_data['El']==el2)]
+        el2param=element_params[element_params['El']==el2].iloc[0]
+        if len(el2row)>0:
+            el2row=el2row.iloc[0]
+            el2n=el2row['logNx']
+            el2_frac_err=(el2row['B_logNx']-el2row['b_logNx'])/2.
+            el2err=np.log10(el2_frac_err/0.434)+el2n
+            f,f_err=calc_f(el1param,el2param,el1n,el2n,el1err,el2err)
+            f_vals=np.concatenate([f_vals,[f]])
+            f_errs=np.concatenate([f_errs,[f_err]])
+    return np.mean(f_vals),np.sqrt(np.sum(f_errs**2))
+
+# Calculates the F* parameter defined by Jenkins(2009) given data
+# for two particular elements
 # Inputs:   el1row, el2row are parameter rows from Jenkins09 Table4
 #           el1n,el2n,el1err,el2err are log(N) and associated errors for the two elements
-def get_f_star(el1row,el2row,el1n,el2n,el1err,el2err):
+def calc_f(el1row,el2row,el1n,el2n,el1err,el2err):
+    el1n=float(el1n)
+    el2n=float(el2n)
+    el1err=float(el1err)
+    el2err=float(el2err)
     el1_frac_err=0.434*10**(el1err-el1n)
     el2_frac_err=0.434*10**(el2err-el2n)
     fs=np.arange(-1,3,0.01)
