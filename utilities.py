@@ -1,4 +1,5 @@
 import numpy as np
+import os
 import healpy as hp
 from itertools import chain
 
@@ -43,9 +44,11 @@ def calc_r_dist(pgcc,sightline_ra,sightline_dec):
 
 # For a given sightline and atomic line, finds the spectral data in the file system
 # and calculates the upper limit column density based on the S/N of that data
-def get_ul(sl,line):
-    f=get_atomic_entry(line)
-    fil=x1d_dir+sl+'/E140H/'+sl+'_'+str(line)+'.dat'
+def get_ul(sl,ion,line):
+    f=get_atomic_entry(ion,line)
+    fls=[x for x in os.listdir(x1d_dir+sl+'/E140H') if x.startswith(sl) and x.endswith('.dat')]
+    fls.sort(key=lambda x:abs(line-float(x.split('_')[1][:-4])))
+    fil=x1d_dir+sl+'/E140H/'+fls[0]
     wavs=[]
     flxs=[]
     with open(fil,'r') as myfile:
@@ -125,14 +128,20 @@ def calc_f(el1row,el2row,el1n,el2n,el1err,el2err):
 
 # Parses the FITS6P atomic.dat file to find relevant line info
 # for an atomic line of a given wavelength
-def get_atomic_entry(wav):
+def get_atomic_entry(ion,wav):
     if wav==1328.833:
         wav=1328.8333
     with open('/Users/codydirks/fits6p/atomic.dat','r') as myfile:
         lines=myfile.read().split('\n')[1:]
-    for line in lines:
-        if float(line.split()[0])==wav:
-            return float(line[30:39])
+    if 'CO' in ion:
+        ion_lines=[x for x in lines if x[10:18].strip().startswith(ion)]
+    else:
+        ion_lines=[x for x in lines if x[10:18].strip()==ion]
+    ion_lines.sort(key=lambda x: abs(wav-float(x[0:8])))
+    return float(ion_lines[0][30:39])
+    #for line in lines:
+    #    if float(line.split()[0])==wav:
+    #        return float(line[30:39])
 
 
 # Gets spectrum from the pixel that contains a given Lat/Lon

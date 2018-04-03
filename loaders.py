@@ -98,13 +98,17 @@ def load_results(primary_sample):
             # Iterate over ions and get nearest component, then add columns in that component
             for ion in ion_list:
                 for entry in data_dict[ion]:
-                    comps_dict[ion]=[c for c in entry[1] if abs(c.v-v)<del_v_tol]
+                    comps_dict[ion]=[x for x in entry[1] if abs(x.v-v)<del_v_tol]
                     if len(comps_dict[ion])>0:
                         n_tot=sum([x.n for x in comps_dict[ion]])
                         n_err=np.sqrt(sum([x.n_err*x.n_err for x in comps_dict[ion]]))
                         n_dict[ion]=round(np.log10(n_tot),3)
                         #n_dict[ion+'_err']=0.434*n_err/n_tot
-                        n_dict[ion+'_err']=round(np.log10(n_err),3)
+                        if n_err>0:
+                            n_dict[ion+'_err']=round(np.log10(n_err),3)
+                        else:
+                            lin=comps_dict[ion][0].wav/(comps_dict[ion][0].v/c + 1)
+                            n_dict[ion+'_err']=get_ul(sl[0],ion,float(lin))
                         break
                     else:
                         fits6p_prefix=get_fits6p_ion(ion)
@@ -112,7 +116,7 @@ def load_results(primary_sample):
                             lam=fl.split('_')[1]
                             dat_file=[x for x in os.listdir(x1d_dir+sl[0]+'/E140H') if x.startswith(sl[0]) and x.endswith('.dat') and lam in x][0]
                             lin=dat_file.split('_')[1][:-4]
-                            n_dict[ion+'_err']=get_ul(sl[0],float(lin))
+                            n_dict[ion+'_err']=get_ul(sl[0],ion,float(lin))
                         break
 
                 info[get_table_ion(ion)]=n_dict[ion]
