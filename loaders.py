@@ -28,7 +28,7 @@ c=300000.
 # Sightline name, coordinate tuple, pgcc data, gaia data
 def load_data(selection=[]):
     filename='sightline_pgcc_gaia_results.txt'
-    gaia_filenames=[top_path+'gaia_data/TgasSource_000-000-0'+'{:02}'.format(i)+'.fits' for i in range(16)]
+    tgas_filenames=[top_path+'tgas_data/TgasSource_000-000-0'+'{:02}'.format(i)+'.fits' for i in range(16)]
     pgcc_data=fits.open(top_path+'HFI_PCCS_GCC_R2.02.fits')[1].data
     sl_pgcc_gaia=[]
     with open(filename,'r') as myfile:
@@ -41,11 +41,11 @@ def load_data(selection=[]):
             pgcc=pgcc_data[int(dat[2])]
             if dat[3] != 'None':
                 fl,idx=map(int,dat[3][1:-1].split(','))
-                gaia_entry=fits.open(gaia_filenames[fl])[1].data[idx]
+                tgas_entry=fits.open(tgas_filenames[fl])[1].data[idx]
             else:
-                gaia_entry=None
+                tgas_entry=None
 
-            sl_pgcc_gaia.append([sightline,(ra,dec),pgcc,gaia_entry])
+            sl_pgcc_gaia.append([sightline,(ra,dec),pgcc,tgas_entry])
     sl_pgcc_gaia.sort(key=lambda x: (x[0][0],int(re.search(r'\d+',x[0]).group())))
 
     if type(selection)==list and len(selection)>0:
