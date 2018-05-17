@@ -1,6 +1,5 @@
 import numpy as np
 import os
-import healpy as hp
 from itertools import chain
 
 import astropy.units as u
