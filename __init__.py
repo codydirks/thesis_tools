@@ -1,3 +1,3 @@
-from loaders import *
-from utilities import *
-from LineInfo import LineInfo
+from .loaders import *
+from .utilities import *
+from .LineInfo import LineInfo
