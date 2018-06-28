@@ -130,8 +130,14 @@ def load_results(primary_sample):
     all_data=all_data.replace(-np.inf,0)
 
     # All calculated columns
+
+    # Derives the total hydrogen column density based on the oxygen column density
+    # using the relationship from Meyer et al. 1998
     all_data['H_tot']=np.where(all_data['O']>0,np.log10((10**6/305.)*10**(all_data['O'])),0).round(3)
+
+    # Derives the molecular hydrogen column density using the Balashev et al. 2015 relationship
     all_data['H_2']=np.where(all_data['Cl']>0, ((all_data['Cl']+3.7)/0.87),0.).round(3)
+    # Derives the molecular hydrogen 
     all_data['f_H2']=np.where((all_data['H_tot']>0) & (all_data['H_2']>0),10**(np.log10(2.)+all_data['H_2']-all_data['H_tot']),0.0).round(3)
     all_data['CO/H2']=np.where((all_data['H_2']>0) & (all_data['CO']>0),10**(all_data['CO']-all_data['H_2']),0.0)
     all_data['12CO/13CO']=np.where((all_data['13CO']>0) & (all_data['CO']>0),10**(all_data['CO']-all_data['13CO']),0.0).round(3)
