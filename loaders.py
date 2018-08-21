@@ -29,7 +29,8 @@ c=300000.
 def load_data(selection=[]):
     filename='sightline_pgcc_gaia_results.txt'
     tgas_filenames=[top_path+'tgas_data/TgasSource_000-000-0'+'{:02}'.format(i)+'.fits' for i in range(16)]
-    pgcc_data=fits.open(top_path+'HFI_PCCS_GCC_R2.02.fits')[1].data
+    pgcc_hdu=fits.open(top_path+'HFI_PCCS_GCC_R2.02.fits')
+    pgcc_data=pgcc_hdu[1].data
     sl_pgcc_gaia=[]
     with open(filename,'r') as myfile:
         for line in myfile:
@@ -41,12 +42,16 @@ def load_data(selection=[]):
             pgcc=pgcc_data[int(dat[2])]
             if dat[3] != 'None':
                 fl,idx=map(int,dat[3][1:-1].split(','))
-                tgas_entry=fits.open(tgas_filenames[fl])[1].data[idx]
+                tgas_hdu=fits.open(tgas_filenames[fl])
+                tgas_entry=tgas_hdu[1].data[idx]
+                tgas_hdu.close()
             else:
                 tgas_entry=None
 
+
             sl_pgcc_gaia.append([sightline,(ra,dec),pgcc,tgas_entry])
     sl_pgcc_gaia.sort(key=lambda x: (x[0][0],int(re.search(r'\d+',x[0]).group())))
+    pgcc_hdu.close()
 
     if type(selection)==list and len(selection)>0:
         return [x for x in sl_pgcc_gaia if x[0] in selection]
@@ -137,7 +142,7 @@ def load_results(primary_sample):
 
     # Derives the molecular hydrogen column density using the Balashev et al. 2015 relationship
     all_data['H_2']=np.where(all_data['Cl']>0, ((all_data['Cl']+3.7)/0.87),0.).round(3)
-    # Derives the molecular hydrogen 
+    # Derives the molecular hydrogen
     all_data['f_H2']=np.where((all_data['H_tot']>0) & (all_data['H_2']>0),10**(np.log10(2.)+all_data['H_2']-all_data['H_tot']),0.0).round(3)
     all_data['CO/H2']=np.where((all_data['H_2']>0) & (all_data['CO']>0),10**(all_data['CO']-all_data['H_2']),0.0)
     all_data['12CO/13CO']=np.where((all_data['13CO']>0) & (all_data['CO']>0),10**(all_data['CO']-all_data['13CO']),0.0).round(3)
