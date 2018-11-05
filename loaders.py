@@ -31,6 +31,7 @@ def load_data(selection=[]):
     tgas_filenames=[top_path+'tgas_data/TgasSource_000-000-0'+'{:02}'.format(i)+'.fits' for i in range(16)]
     pgcc_hdu=fits.open(top_path+'HFI_PCCS_GCC_R2.02.fits')
     pgcc_data=pgcc_hdu[1].data
+    pgcc_hdu.close()
     sl_pgcc_gaia=[]
     with open(filename,'r') as myfile:
         for line in myfile:
@@ -51,7 +52,6 @@ def load_data(selection=[]):
 
             sl_pgcc_gaia.append([sightline,(ra,dec),pgcc,tgas_entry])
     sl_pgcc_gaia.sort(key=lambda x: (x[0][0],int(re.search(r'\d+',x[0]).group())))
-    pgcc_hdu.close()
 
     if type(selection)==list and len(selection)>0:
         return [x for x in sl_pgcc_gaia if x[0] in selection]
@@ -136,16 +136,83 @@ def load_results(primary_sample):
 
     # All calculated columns
 
-    # Derives the total hydrogen column density based on the oxygen column density
-    # using the relationship from Meyer et al. 1998
-    all_data['H_tot']=np.where(all_data['O']>0,np.log10((10**6/305.)*10**(all_data['O'])),0).round(3)
+    # Derive the total hydrogen column density based on the oxygen column density
+    # using the relationship from (Meyer et al. 1998) GHRS data
+
+    #Converts log(oxygen column density) to log(total hydrogen column density)
+    def o_to_h_tot(row):
+        log_o,log_o_err=row[['O','O_err']]
+        o,o_err=10**np.array((log_o,log_o_err))
+        log_h_tot,log_h_tot_err=0.,0.
+        if log_o>0:
+            log_h_tot=np.log10((10**6/319.)*o).round(3)
+            log_h_tot_err=np.log10((10**log_h_tot)*np.sqrt((14./319.)**2+(o_err/o)**2)).round(3)
+        else:
+            log_h_tot_err=np.log10((10**6/319.)*o_err).round(3)
+        return log_h_tot,log_h_tot_err
+
+    all_data['H_tot'],all_data['H_tot_err']=zip(*all_data.apply(o_to_h_tot,axis=1))
+
+
+    # Determines the H2 column density. If CO is detected, use CO/CI ratio
+    # Else, use chlorine column density a la Balashev
+    def calc_h2(row):
+        if row['CO']>0:
+            return co_cI_to_h2(row)
+        else:
+            return cl_to_h2(row)
 
     # Derives the molecular hydrogen column density using the Balashev et al. 2015 relationship
-    all_data['H_2']=np.where(all_data['Cl']>0, ((all_data['Cl']+3.7)/0.87),0.).round(3)
-    # Derives the molecular hydrogen
-    all_data['f_H2']=np.where((all_data['H_tot']>0) & (all_data['H_2']>0),10**(np.log10(2.)+all_data['H_2']-all_data['H_tot']),0.0).round(3)
-    all_data['CO/H2']=np.where((all_data['H_2']>0) & (all_data['CO']>0),10**(all_data['CO']-all_data['H_2']),0.0)
-    all_data['12CO/13CO']=np.where((all_data['13CO']>0) & (all_data['CO']>0),10**(all_data['CO']-all_data['13CO']),0.0).round(3)
+    def cl_to_h2(row):
+        log_cl,log_cl_err=row[['Cl','Cl_err']]
+        cl,cl_err=10**np.array((log_cl,log_cl_err))
+        log_h2,log_h2_err=0.,0.
+        if log_cl>0:
+            log_h2=(log_cl+3.7)/0.87
+            # Error in Balashev paper is given as "about 0.2 dex"
+            log_h2_err=np.log10((0.2/0.434)*10**log_h2)
+        return round(log_h2,3),round(log_h2_err,3)
+
+    # Calculates H2 column density based on CO/CI ratio.
+    # This is only possible if a CO column density is measured
+    def co_cI_to_h2(row):
+        # These fit parameters are derived based on the combination of Burgh 2010 + my dataset
+        m=0.949756
+        dm=0.05089
+        b=5.4674
+        db=0.3079
+
+        log_co,log_co_err=row[['CO','CO_err']]
+        log_h2,log_h2_err=0.,0.
+        if log_co>0:
+            co_frac_err=10**(log_co_err-log_co)
+            log_c=np.log10((10**row[['C','C*','C**']]).sum())
+            log_c_err=np.log10(np.sqrt(((10**row[['C_err','C*_err','C**_err']])**2).sum()))
+            c_frac_err=10**(log_c_err-log_c)
+            log_co_c_ratio=log_co-log_c
+            log_co_h2_ratio=((log_co_c_ratio)-b)/m
+
+            log_h2=round(log_co-log_co_h2_ratio,3)
+            d_co_h2_ratio=(1/m**2)*((0.434*(co_frac_err**2+c_frac_err**2))**2+db**2)+(((b-log_co_c_ratio)/m**2)**2)*dm**2
+            h2_frac_err=np.sqrt(abs((d_co_h2_ratio/0.434)**2-co_frac_err**2))
+            log_h2_err=np.log10((10**log_h2)*h2_frac_err).round(3)
+        return log_h2,log_h2_err
+
+    all_data['H2'],all_data['H2_err']=zip(*all_data.apply(calc_h2,axis=1))
+
+    # Calculates the molecular hydrogen fraction using the above results
+    def calc_fh2(row):
+        log_h2,log_h2_err=row[['H2','H2_err']]
+        h2,h2_err=10**np.array((log_h2,log_h2_err))
+        log_h_tot,log_h_tot_err=row[['H_tot','H_tot_err']]
+        h_tot,h_tot_err=10**np.array((log_h_tot,log_h_tot_err))
+        f_h2,f_h2_err=0.,0.
+        if log_h2>0 and log_h_tot>0:
+            f_h2=(2*h2)/h_tot
+            f_h2_err=f_h2*np.sqrt((h_tot_err/h_tot)**2+(h2_err/h2)**2)
+        return f_h2,f_h2_err
+
+    all_data['f_H2'],all_data['f_H2_err']=zip(*all_data.apply(calc_fh2,axis=1))
 
     return all_data
 
