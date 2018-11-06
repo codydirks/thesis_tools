@@ -27,7 +27,7 @@ c=300000.
 # Each entry in the returned data has the form:
 # Sightline name, coordinate tuple, pgcc data, gaia data
 def load_data(selection=[]):
-    filename='sightline_pgcc_gaia_results.txt'
+    filename=top_path+'notebooks/sightline_pgcc_gaia_results.txt'
     tgas_filenames=[top_path+'tgas_data/TgasSource_000-000-0'+'{:02}'.format(i)+'.fits' for i in range(16)]
     pgcc_hdu=fits.open(top_path+'HFI_PCCS_GCC_R2.02.fits')
     pgcc_data=pgcc_hdu[1].data

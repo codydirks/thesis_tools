@@ -61,10 +61,20 @@ def get_ul(sl,ion,line):
     flxcut=np.copy(flxs)
     n=0
     ind=np.array([])
+
+    # Try to remove absorption lines from spectrum
+    # so our calculation of tau only involves the
+    # noise envelope
     while abs(np.mean(flxcut)-1)>0.002:
         n=n+1
         ind = np.argpartition(abs(flxs-np.mean(flxcut)), -n)[-n:]
         flxcut=np.delete(flxs,ind)
+        if len(flxcut)==0:
+            # If we weren't able to converge, reset the selected data
+            # to the original spectrum
+            flxcut=np.copy(flxs)
+            break
+
     tau=np.log10(1/(1-5.*np.std(flxcut)))
     ul=3.768E14*tau/(f*line)
     return np.log10(ul)
@@ -138,9 +148,6 @@ def get_atomic_entry(ion,wav):
         ion_lines=[x for x in lines if x[10:18].strip()==ion]
     ion_lines.sort(key=lambda x: abs(wav-float(x[0:8])))
     return float(ion_lines[0][30:39])
-    #for line in lines:
-    #    if float(line.split()[0])==wav:
-    #        return float(line[30:39])
 
 
 # Gets spectrum from the pixel that contains a given Lat/Lon
